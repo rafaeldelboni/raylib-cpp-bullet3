@@ -1,14 +1,30 @@
+# Bullet3 Hello World
 add_executable(
-  main
-  main.cpp
+  main-bullet
+  main-bullet.cpp
 )
 
 add_dependencies(
-  main
+  main-bullet
   resources
 )
 
 target_link_libraries(
-  main
-  raylib-cpp raylib
-)
+  main-bullet
+  BulletDynamics
+  BulletCollision
+  LinearMath)
+
+# Raylib Hello World
+add_executable(
+  main-raylib
+  main-raylib.cpp)
+
+add_dependencies(
+  main-raylib
+  resources)
+
+target_link_libraries(
+  main-raylib
+  raylib
+  raylib-cpp)
