@@ -85,6 +85,7 @@ int main(int argc, char **argv) {
     /// Create Dynamic Objects
     btTransform startTransform;
     startTransform.setIdentity();
+    startTransform.setOrigin(btVector3(2, 10, 0));
 
     btScalar mass(1.f);
 
@@ -94,8 +95,6 @@ int main(int argc, char **argv) {
     btVector3 localInertia(0, 0, 0);
     if (isDynamic)
       colShape->calculateLocalInertia(mass, localInertia);
-
-    startTransform.setOrigin(btVector3(2, 10, 0));
 
     // using motionstate is recommended, it provides interpolation capabilities,
     // and only synchronizes 'active' objects
