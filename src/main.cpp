@@ -1,4 +1,10 @@
 #include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
+
+#include "BulletCollision/CollisionShapes/btCollisionShape.h"
+#include "BulletCollision/CollisionShapes/btConvexPolyhedron.h"
+#include "BulletCollision/CollisionShapes/btShapeHull.h"
+
+#include "LinearMath/btVector3.h"
 #include "btBulletDynamicsCommon.h"
 #include "raylib-cpp.hpp"
 #include "raylib.h"
@@ -22,9 +28,132 @@ void setTransform(btScalar m[16], Matrix *matrix) {
   matrix->m15 = m[15];
 }
 
+void AllocateMeshData(Mesh *mesh, int triangleCount) {
+  mesh->vertexCount = triangleCount * 3;
+  mesh->triangleCount = triangleCount;
+
+  mesh->vertices = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
+  mesh->texcoords = (float *)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
+  mesh->normals = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
+}
+
+Mesh ShapeToMesh(btCollisionShape *shape) {
+  Mesh mesh = {0};
+
+  if (shape->isConvex()) {
+
+    const btConvexPolyhedron *poly =
+        shape->isPolyhedral()
+            ? ((btPolyhedralConvexShape *)shape)->getConvexPolyhedron()
+            : 0;
+
+    if (poly) {
+      int i;
+      AllocateMeshData(&mesh, poly->m_faces.size());
+      int currentVertice = 0;
+      for (i = 0; i < poly->m_faces.size(); i++) {
+        btVector3 centroid(0, 0, 0);
+        int numVerts = poly->m_faces[i].m_indices.size();
+        if (numVerts > 2) {
+          btVector3 v1 = poly->m_vertices[poly->m_faces[i].m_indices[0]];
+          for (int v = 0; v < poly->m_faces[i].m_indices.size() - 2; v++) {
+            btVector3 v2 = poly->m_vertices[poly->m_faces[i].m_indices[v + 1]];
+            btVector3 v3 = poly->m_vertices[poly->m_faces[i].m_indices[v + 2]];
+            btVector3 normal = (v3 - v1).cross(v2 - v1);
+            normal.normalize();
+
+            mesh.vertices[currentVertice] = v1.x();
+            mesh.vertices[currentVertice + 1] = v1.y();
+            mesh.vertices[currentVertice + 2] = v1.z();
+            mesh.normals[currentVertice] = normal.getX();
+            mesh.normals[currentVertice + 1] = normal.getY();
+            mesh.normals[currentVertice + 2] = normal.getZ();
+
+            mesh.vertices[currentVertice + 3] = v2.x();
+            mesh.vertices[currentVertice + 4] = v2.y();
+            mesh.vertices[currentVertice + 5] = v2.z();
+            mesh.normals[currentVertice + 3] = normal.getX();
+            mesh.normals[currentVertice + 4] = normal.getY();
+            mesh.normals[currentVertice + 5] = normal.getZ();
+
+            mesh.vertices[currentVertice + 6] = v3.x();
+            mesh.vertices[currentVertice + 7] = v3.y();
+            mesh.vertices[currentVertice + 8] = v3.z();
+            mesh.normals[currentVertice + 6] = normal.getX();
+            mesh.normals[currentVertice + 7] = normal.getY();
+            mesh.normals[currentVertice + 8] = normal.getZ();
+
+            currentVertice += 9;
+          }
+        }
+      }
+    } else {
+      btConvexShape *convexShape = (btConvexShape *)shape;
+      btShapeHull *hull = new btShapeHull(convexShape);
+      hull->buildHull(shape->getMargin());
+
+      AllocateMeshData(&mesh, hull->numTriangles());
+      int currentVertice = 0;
+      if (hull->numTriangles() > 0) {
+
+        int index = 0;
+        const unsigned int *idx = hull->getIndexPointer();
+        const btVector3 *vtx = hull->getVertexPointer();
+
+        for (int i = 0; i < hull->numTriangles(); i++) {
+          int i1 = index++;
+          int i2 = index++;
+          int i3 = index++;
+          btAssert(i1 < hull->numIndices() && i2 < hull->numIndices() &&
+                   i3 < hull->numIndices());
+
+          int index1 = idx[i1];
+          int index2 = idx[i2];
+          int index3 = idx[i3];
+          btAssert(index1 < hull->numVertices() &&
+                   index2 < hull->numVertices() &&
+                   index3 < hull->numVertices());
+
+          btVector3 v1 = vtx[index1];
+          btVector3 v2 = vtx[index2];
+          btVector3 v3 = vtx[index3];
+          btVector3 normal = (v3 - v1).cross(v2 - v1);
+          normal.normalize();
+
+          mesh.vertices[currentVertice] = v1.x();
+          mesh.vertices[currentVertice + 1] = v1.y();
+          mesh.vertices[currentVertice + 2] = v1.z();
+          mesh.normals[currentVertice] = normal.getX();
+          mesh.normals[currentVertice + 1] = normal.getY();
+          mesh.normals[currentVertice + 2] = normal.getZ();
+
+          mesh.vertices[currentVertice + 3] = v2.x();
+          mesh.vertices[currentVertice + 4] = v2.y();
+          mesh.vertices[currentVertice + 5] = v2.z();
+          mesh.normals[currentVertice + 3] = normal.getX();
+          mesh.normals[currentVertice + 4] = normal.getY();
+          mesh.normals[currentVertice + 5] = normal.getZ();
+
+          mesh.vertices[currentVertice + 6] = v3.x();
+          mesh.vertices[currentVertice + 7] = v3.y();
+          mesh.vertices[currentVertice + 8] = v3.z();
+          mesh.normals[currentVertice + 6] = normal.getX();
+          mesh.normals[currentVertice + 7] = normal.getY();
+          mesh.normals[currentVertice + 8] = normal.getZ();
+
+          currentVertice += 9;
+        }
+      }
+    }
+    UploadMesh(&mesh, false);
+  }
+  return mesh;
+}
+
 struct PhysicsWorld {
   // keep the collision shapes, for deletion/cleanup
   btAlignedObjectArray<btCollisionShape *> m_collisionShapes;
+  btAlignedObjectArray<Model> m_models;
   btBroadphaseInterface *m_broadphase;
   btCollisionDispatcher *m_dispatcher;
   btConstraintSolver *m_solver;
@@ -87,6 +216,12 @@ struct PhysicsWorld {
     }
     m_collisionShapes.clear();
 
+    // delete raylib's models
+    for (int j = 0; j < m_models.size(); j++) {
+      UnloadModel(m_models[j]);
+    }
+    m_models.clear();
+
     delete m_dynamicsWorld;
     m_dynamicsWorld = 0;
 
@@ -104,7 +239,9 @@ struct PhysicsWorld {
   }
 
   btRigidBody *createRigidBody(float mass, const btTransform &startTransform,
-                               btCollisionShape *shape) {
+                               btCollisionShape *shape, int modelIndex,
+                               btVector3 colorRGB = btVector3(130, 130, 130)) {
+
     btAssert((!shape || shape->getShapeType() != INVALID_SHAPE_PROXYTYPE));
 
     // rigidbody is dynamic if and only if mass is non zero, otherwise static
@@ -125,6 +262,10 @@ struct PhysicsWorld {
     btRigidBody *body = new btRigidBody(cInfo);
 
     body->setUserIndex(-1);
+    body->setUserIndex3(modelIndex);
+
+    body->setCustomDebugColor(colorRGB);
+
     m_dynamicsWorld->addRigidBody(body);
     return body;
   }
@@ -137,7 +278,7 @@ struct PhysicsWorld {
     delete ms;
   }
 
-  void draw(Model box, Model ball) {
+  void drawDebug() {
     for (int j = m_dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--) {
       btCollisionObject *obj = m_dynamicsWorld->getCollisionObjectArray()[j];
       btRigidBody *body = btRigidBody::upcast(obj);
@@ -147,23 +288,19 @@ struct PhysicsWorld {
       } else {
         trans = obj->getWorldTransform();
       }
+
       btScalar m[16];
       trans.getOpenGLMatrix(m);
-      Vector3 position = (Vector3){0,0,0};
+      Vector3 position = (Vector3){0, 0, 0};
+      Model model = this->m_models[body->getUserIndex3()];
+      setTransform(m, &model.transform);
 
-      int shapeType = body->getCollisionShape()->getShapeType();
-      if (shapeType == BOX_SHAPE_PROXYTYPE) {
-        setTransform(m, &box.transform);
-        DrawModelWires(box, position, 1.0f, RED);
+      btVector3 vecColor = btVector3(230, 41, 55);
+      body->getCustomDebugColor(vecColor);
+      Color color = raylib::Color((int)vecColor.getX(), (int)vecColor.getY(),
+                                  (int)vecColor.getZ(), 255);
 
-      } else if (shapeType == SPHERE_SHAPE_PROXYTYPE) {
-        setTransform(m, &ball.transform);
-        DrawModelWires(ball, position, 1.0f, BLUE);
-      }
-
-      printf("world pos object %d = %f,%f,%f\n", j,
-             float(trans.getOrigin().getX()), float(trans.getOrigin().getY()),
-             float(trans.getOrigin().getZ()));
+      DrawModelWires(model, position, 1.0f, color);
     }
   }
 };
@@ -173,17 +310,11 @@ int main() {
   const int screenHeight = 450;
   raylib::Window window(screenWidth, screenHeight, "raylib");
   raylib::Camera3D camera(
-    raylib::Vector3(0.0f, 10.0f, 10.0f),
-    raylib::Vector3(0.0f, -5.0f, 0.0f),
-    raylib::Vector3(0.0f, 10.0f, 0.0f),
-    45.0f, CAMERA_PERSPECTIVE);
+      raylib::Vector3(0.0f, 10.0f, 10.0f), raylib::Vector3(0.0f, -5.0f, 0.0f),
+      raylib::Vector3(0.0f, 10.0f, 0.0f), 45.0f, CAMERA_PERSPECTIVE);
   camera.SetMode(CAMERA_ORBITAL); // Set an orbital camera mode
 
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-
-  // raylib models
-  Model box = LoadModelFromMesh(GenMeshCube(100., 100., 100.));
-  Model ball = LoadModelFromMesh(GenMeshSphere(1., 32, 32));
 
   // physics
   //--------------------------------------------------------------------------------------
@@ -195,23 +326,76 @@ int main() {
         new btBoxShape(btVector3(btScalar(50.), btScalar(50.), btScalar(50.)));
     world.m_collisionShapes.push_back(groundShape);
 
+    Model model = LoadModelFromMesh(ShapeToMesh(groundShape));
+    world.m_models.push_back(model);
+
     btTransform groundTransform;
     groundTransform.setIdentity();
     groundTransform.setOrigin(btVector3(0, -56, 0));
 
-    btRigidBody *ground =
-        world.createRigidBody(0., groundTransform, groundShape);
+    btRigidBody *ground = world.createRigidBody(
+        0., groundTransform, groundShape, world.m_models.size() - 1);
   }
 
   {
     btCollisionShape *colShape = new btSphereShape(btScalar(1.));
     world.m_collisionShapes.push_back(colShape);
+    world.m_collisionShapes.push_back(colShape);
+
+    Model model = LoadModelFromMesh(ShapeToMesh(colShape));
+    world.m_models.push_back(model);
 
     btTransform startTransform;
     startTransform.setIdentity();
     startTransform.setOrigin(btVector3(2, 10, 0));
 
-    btRigidBody *ground = world.createRigidBody(1.f, startTransform, colShape);
+    btRigidBody *sphere = world.createRigidBody(1.f, startTransform, colShape,
+                                                world.m_models.size() - 1,
+                                                btVector3(255, 161, 0));
+  }
+
+  {
+    // create a few dynamic rigidbodies
+    // Re-using the same collision is better for memory usage and performance
+
+    btBoxShape *colShape =
+        new btBoxShape(btVector3(btScalar(.1), btScalar(.1), btScalar(.1)));
+
+    // btCollisionShape* colShape = new btSphereShape(btScalar(1.));
+    world.m_collisionShapes.push_back(colShape);
+
+    Model model = LoadModelFromMesh(ShapeToMesh(colShape));
+    world.m_models.push_back(model);
+
+    /// Create Dynamic Objects
+    btTransform startTransform;
+    startTransform.setIdentity();
+
+    btScalar mass(1.f);
+
+    // rigidbody is dynamic if and only if mass is non zero, otherwise static
+    bool isDynamic = (mass != 0.f);
+
+    btVector3 localInertia(0, 0, 0);
+    if (isDynamic)
+      colShape->calculateLocalInertia(mass, localInertia);
+
+    int arraySizeY = 5;
+    int arraySizeX = 5;
+    int arraySizeZ = 5;
+
+    for (int k = 0; k < arraySizeY; k++) {
+      for (int i = 0; i < arraySizeX; i++) {
+        for (int j = 0; j < arraySizeZ; j++) {
+          startTransform.setOrigin(btVector3(
+              btScalar(0.2 * i), btScalar(2 + .2 * k), btScalar(0.2 * j)));
+
+          world.createRigidBody(mass, startTransform, colShape,
+                                world.m_models.size() - 1,
+                                btVector3(0, 121, 241));
+        }
+      }
+    }
   }
 
   //--------------------------------------------------------------------------------------
@@ -231,9 +415,7 @@ int main() {
       window.ClearBackground(RAYWHITE);
 
       camera.BeginMode();
-      {
-        world.draw(box, ball);
-      }
+      { world.drawDebug(); }
       camera.EndMode();
 
       DrawFPS(10, 10);
