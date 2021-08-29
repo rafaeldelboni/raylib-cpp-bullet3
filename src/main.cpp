@@ -306,8 +306,8 @@ struct PhysicsWorld {
 };
 
 int main() {
-  const int screenWidth = 800;
-  const int screenHeight = 450;
+  const int screenWidth = 1024;
+  const int screenHeight = 720;
   raylib::Window window(screenWidth, screenHeight, "raylib");
   raylib::Camera3D camera(
       raylib::Vector3(0.0f, 10.0f, 10.0f), raylib::Vector3(0.0f, -5.0f, 0.0f),

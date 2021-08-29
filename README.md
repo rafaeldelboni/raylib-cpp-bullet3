@@ -1,6 +1,16 @@
 # raylib-cpp-bullet3
 C, Cpp, Cmake, Raylib, Raylib-cpp and Bullet3 Boilerplate 
 
+![raylib-cpp-bullet3](raylib-cpp-bullet3.gif)
+
+## Usage
+
+```bash
+make setup
+make build
+./build/src/main
+```
+
 ## Features
 This is a Cpp project template with the following features:
 
