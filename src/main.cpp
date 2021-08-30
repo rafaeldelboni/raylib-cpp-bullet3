@@ -6,7 +6,6 @@
 
 #include "LinearMath/btVector3.h"
 #include "btBulletDynamicsCommon.h"
-#include "raylib-cpp.hpp"
 #include "raylib.h"
 
 void setTransform(btScalar m[16], Matrix *matrix) {
@@ -297,8 +296,9 @@ struct PhysicsWorld {
 
       btVector3 vecColor = btVector3(230, 41, 55);
       body->getCustomDebugColor(vecColor);
-      Color color = raylib::Color((int)vecColor.getX(), (int)vecColor.getY(),
-                                  (int)vecColor.getZ(), 255);
+      Color color = (Color){(unsigned char)vecColor.getX(),
+                            (unsigned char)vecColor.getY(),
+                            (unsigned char)vecColor.getZ(), 255};
 
       DrawModelWires(model, position, 1.0f, color);
     }
@@ -308,11 +308,13 @@ struct PhysicsWorld {
 int main() {
   const int screenWidth = 1024;
   const int screenHeight = 720;
-  raylib::Window window(screenWidth, screenHeight, "raylib");
-  raylib::Camera3D camera(
-      raylib::Vector3(0.0f, 10.0f, 10.0f), raylib::Vector3(0.0f, -5.0f, 0.0f),
-      raylib::Vector3(0.0f, 10.0f, 0.0f), 45.0f, CAMERA_PERSPECTIVE);
-  camera.SetMode(CAMERA_ORBITAL); // Set an orbital camera mode
+  InitWindow(screenWidth, screenHeight, "raylib - bullet3");
+  Camera camera = {{2.0f, 0.1f, 2.0f},
+                   {3.0f, -2.0f, 3.0f},
+                   {0.0f, 1.0f, 0.0f},
+                   45.0f,
+                   CAMERA_PERSPECTIVE};
+  SetCameraMode(camera, CAMERA_FIRST_PERSON); // Set camera mode
 
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
 
@@ -339,7 +341,6 @@ int main() {
 
   {
     btCollisionShape *colShape = new btSphereShape(btScalar(1.));
-    world.m_collisionShapes.push_back(colShape);
     world.m_collisionShapes.push_back(colShape);
 
     Model model = LoadModelFromMesh(ShapeToMesh(colShape));
@@ -401,29 +402,31 @@ int main() {
   //--------------------------------------------------------------------------------------
 
   // Main game loop
-  while (!window.ShouldClose()) { // Detect window close button or ESC key
-    // Update
-    //----------------------------------------------------------------------------------
+  while (!WindowShouldClose()) // Detect window close button or ESC key
+  {
     world.m_dynamicsWorld->stepSimulation(GetFrameTime(), 10);
-    camera.Update(); // Update camera
-    //----------------------------------------------------------------------------------
+    UpdateCamera(&camera); // Update camera
 
-    // Draw
-    //----------------------------------------------------------------------------------
     BeginDrawing();
     {
-      window.ClearBackground(RAYWHITE);
+      ClearBackground(RAYWHITE);
 
-      camera.BeginMode();
-      { world.drawDebug(); }
-      camera.EndMode();
+      BeginMode3D(camera);
+      {
+        world.drawDebug();
+
+        Vector3 pos = camera.target;
+        printf("%f,%f,%f\n", pos.x, pos.y, pos.z);
+      }
+      EndMode3D();
 
       DrawFPS(10, 10);
     }
     EndDrawing();
-    //----------------------------------------------------------------------------------
   }
 
   world.exitPhysics();
+  CloseWindow();
+
   return 0;
 }
