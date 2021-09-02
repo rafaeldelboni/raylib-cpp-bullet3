@@ -7,6 +7,8 @@
 #include "LinearMath/btVector3.h"
 #include "btBulletDynamicsCommon.h"
 #include "raylib.h"
+#include "raymath.h"
+#include <cstdio>
 
 void setTransform(btScalar m[16], Matrix *matrix) {
   matrix->m0 = m[0];
@@ -360,7 +362,7 @@ int main() {
     // Re-using the same collision is better for memory usage and performance
 
     btBoxShape *colShape =
-        new btBoxShape(btVector3(btScalar(.1), btScalar(.1), btScalar(.1)));
+        new btBoxShape(btVector3(btScalar(.5), btScalar(.5), btScalar(.5)));
 
     // btCollisionShape* colShape = new btSphereShape(btScalar(1.));
     world.m_collisionShapes.push_back(colShape);
@@ -389,7 +391,7 @@ int main() {
       for (int i = 0; i < arraySizeX; i++) {
         for (int j = 0; j < arraySizeZ; j++) {
           startTransform.setOrigin(btVector3(
-              btScalar(0.2 * i), btScalar(2 + .2 * k), btScalar(0.2 * j)));
+              btScalar(0.5 * i), btScalar(5 + .5 * k), btScalar(0.5 * j)));
 
           world.createRigidBody(mass, startTransform, colShape,
                                 world.m_models.size() - 1,
@@ -398,6 +400,14 @@ int main() {
       }
     }
   }
+
+  btCollisionShape *colShapeBullet = new btSphereShape(btScalar(.25));
+  world.m_collisionShapes.push_back(colShapeBullet);
+
+  Model modelBullet = LoadModelFromMesh(ShapeToMesh(colShapeBullet));
+  world.m_models.push_back(modelBullet);
+
+  int bulletShapeIndex = world.m_models.size() - 1;
 
   //--------------------------------------------------------------------------------------
 
@@ -415,8 +425,21 @@ int main() {
       {
         world.drawDebug();
 
-        Vector3 pos = camera.target;
-        printf("%f,%f,%f\n", pos.x, pos.y, pos.z);
+        Vector3 pos = camera.position;
+        Vector3 target = camera.target;
+        Vector3 direction = Vector3Normalize(Vector3Subtract(target,pos));
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+          btTransform startTransform;
+          startTransform.setIdentity();
+          startTransform.setOrigin(btVector3(target.x, target.y, target.z));
+
+          btRigidBody *sphere =
+              world.createRigidBody(1.f, startTransform, colShapeBullet,
+                                    bulletShapeIndex, btVector3(255, 50, 50));
+
+          sphere->applyImpulse(btVector3(direction.x*50,direction.y*50,direction.z*50), btVector3(1,0,1));
+        }
       }
       EndMode3D();
 
