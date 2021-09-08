@@ -1,5 +1,6 @@
 #include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
 
+#include "BulletCollision/CollisionShapes/btCapsuleShape.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 #include "BulletCollision/CollisionShapes/btConvexPolyhedron.h"
 #include "BulletCollision/CollisionShapes/btShapeHull.h"
@@ -357,6 +358,25 @@ int main() {
                                                 btVector3(255, 161, 0));
   }
 
+
+  {
+    btCollisionShape *capsuleShape = new btCapsuleShape(btScalar(1.), btScalar(2.));
+    world.m_collisionShapes.push_back(capsuleShape);
+
+    Model model = LoadModelFromMesh(ShapeToMesh(capsuleShape));
+    world.m_models.push_back(model);
+
+    btTransform startTransform;
+    startTransform.setIdentity();
+    startTransform.setOrigin(btVector3(5, 1, 5));
+
+    btRigidBody *sphere = world.createRigidBody(100.f, startTransform, capsuleShape,
+                                                world.m_models.size() - 1,
+                                                btVector3(255, 161, 0));
+
+    sphere->setAngularFactor(0);
+  }
+
   {
     // create a few dynamic rigidbodies
     // Re-using the same collision is better for memory usage and performance
@@ -438,7 +458,7 @@ int main() {
               world.createRigidBody(1.f, startTransform, colShapeBullet,
                                     bulletShapeIndex, btVector3(255, 50, 50));
 
-          sphere->applyImpulse(btVector3(direction.x*50,direction.y*50,direction.z*50), btVector3(1,0,1));
+          sphere->applyImpulse(btVector3(direction.x*70,direction.y*70,direction.z*70), btVector3(1,0,1));
         }
       }
       EndMode3D();
